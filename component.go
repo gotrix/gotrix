@@ -42,11 +42,11 @@ type ComponentWrapper interface {
 }
 
 type ComponentResult struct {
-	Error     error
-	BuildHash string
-	Body      string
-	CSS       *ComponentCSS
-	JS        *ComponentJS
+	Error error
+	Hash  string
+	Body  string
+	CSS   *ComponentCSS
+	JS    *ComponentJS
 }
 
 type ComponentCSS struct {
