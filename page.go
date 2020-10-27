@@ -2,17 +2,39 @@ package gotrix
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
+	"text/template"
 )
 
-func NewPageData() *PageData {
-	return &PageData{}
+type Page interface {
+	Page(Context) error
+	Template() *template.Template
+}
+
+func NewPageData(w io.Writer, r *http.Request, app App) *PageData {
+	return &PageData{
+		w:        w,
+		r:        r,
+		app:      app,
+		data:     make(map[string]interface{}),
+		css:      make([]string, 0),
+		asyncCss: make([]string, 0),
+		js:       make([]string, 0),
+		asyncJs:  make([]string, 0),
+		deferJs:  make([]string, 0),
+	}
 }
 
 type PageData struct {
-	req        *http.Request
+	w          io.Writer
+	r          *http.Request
+	data       map[string]interface{}
+	app        App
+	slug       string
+	body       string
 	cssMu      sync.Mutex
 	css        []string
 	asyncCssMu sync.Mutex
@@ -25,62 +47,148 @@ type PageData struct {
 	deferJs    []string
 }
 
-func (cd *PageData) Request() *http.Request {
-	return cd.req
+func (pd *PageData) Extend() Context {
+	return &PageData{
+		w:        pd.Writer(),
+		r:        pd.Request(),
+		app:      pd.app,
+		css:      make([]string, 0),
+		asyncCss: make([]string, 0),
+		js:       make([]string, 0),
+		asyncJs:  make([]string, 0),
+		deferJs:  make([]string, 0),
+	}
 }
 
-func (cd *PageData) AddAsyncCSS(css ...string) {
-	cd.asyncCssMu.Lock()
-	cd.asyncCss = append(cd.asyncCss, css...)
-	cd.asyncCssMu.Unlock()
+func (pd *PageData) Data(k string) interface{} {
+	if v, ok := pd.data[k]; ok {
+		return v
+	}
+	return nil
 }
 
-func (cd *PageData) AddCSS(css ...string) {
-	cd.cssMu.Lock()
-	cd.css = append(cd.css, css...)
-	cd.cssMu.Unlock()
+func (pd *PageData) SetData(k string, v interface{}) {
+	pd.data[k] = v
 }
 
-func (cd *PageData) AddAsyncJS(js ...string) {
-	cd.asyncJsMu.Lock()
-	cd.asyncJs = append(cd.asyncJs, js...)
-	cd.asyncJsMu.Unlock()
+func (pd *PageData) Body() string {
+	return pd.body
 }
 
-func (cd *PageData) AddDeferJS(js ...string) {
-	cd.deferJsMu.Lock()
-	cd.deferJs = append(cd.deferJs, js...)
-	cd.deferJsMu.Unlock()
+func (pd *PageData) SetBody(body string) {
+	pd.body = body
 }
 
-func (cd *PageData) AddJS(js ...string) {
-	cd.jsMu.Lock()
-	cd.js = append(cd.js, js...)
-	cd.jsMu.Unlock()
+func (pd *PageData) Slug() string {
+	return pd.slug
 }
 
-func (cd *PageData) JS() string {
+func (pd *PageData) SetSlug(slug string) {
+	pd.slug = slug
+}
+
+func (pd *PageData) Request() *http.Request {
+	return pd.r
+}
+
+func (pd *PageData) Writer() io.Writer {
+	return pd.w
+}
+
+func (pd *PageData) AddAsyncCSS(css ...string) {
+	pd.asyncCssMu.Lock()
+	pd.asyncCss = append(pd.asyncCss, css...)
+	pd.asyncCssMu.Unlock()
+}
+
+func (pd *PageData) AddCSS(css ...string) {
+	pd.cssMu.Lock()
+	pd.css = append(pd.css, css...)
+	pd.cssMu.Unlock()
+}
+
+func (pd *PageData) AddAsyncJS(js ...string) {
+	pd.asyncJsMu.Lock()
+	pd.asyncJs = append(pd.asyncJs, js...)
+	pd.asyncJsMu.Unlock()
+}
+
+func (pd *PageData) AddDeferJS(js ...string) {
+	pd.deferJsMu.Lock()
+	pd.deferJs = append(pd.deferJs, js...)
+	pd.deferJsMu.Unlock()
+}
+
+func (pd *PageData) AddJS(js ...string) {
+	pd.jsMu.Lock()
+	pd.js = append(pd.js, js...)
+	pd.jsMu.Unlock()
+}
+
+func (pd *PageData) JS() string {
 	l := make([]string, 0)
-	l = append(l, unique(cd.asyncJs, func(s string) string {
+	l = append(l, unique(pd.asyncJs, func(s string) string {
 		return toJsTag(s, "async")
 	})...)
-	l = append(l, unique(cd.deferJs, func(s string) string {
+	l = append(l, unique(pd.deferJs, func(s string) string {
 		return toJsTag(s, "defer")
 	})...)
-	l = append(l, unique(cd.js, func(s string) string {
+	l = append(l, unique(pd.js, func(s string) string {
 		return toJsTag(s, "")
 	})...)
 	return strings.Join(l, "")
 }
 
-func (cd *PageData) CSS() string {
-	return strings.Join(unique(cd.css, func(s string) string {
+func (pd *PageData) CSS() string {
+	return strings.Join(unique(pd.css, func(s string) string {
 		return toCssTag(s)
 	}), "")
 }
 
-func (cd *PageData) AsyncCSS() string {
-	return `["` + strings.Join(unique(cd.asyncCss, nil), `","`) + `"]`
+func (pd *PageData) AsyncCSS() string {
+	return `["` + strings.Join(unique(pd.asyncCss, nil), `","`) + `"]`
+}
+
+func (pd *PageData) EndHead() string {
+	eb := "<!-- endhead -->"
+	if ac := pd.AsyncCSS(); ac != `[""]` {
+		eb += `<script>((d,l,h,e)=>{` +
+			`h=d.getElementsByTagName("head")[0];` +
+			`l.forEach(s=>{` +
+			`e=d.createElement("link");` +
+			`e.href=s;` +
+			`e.type="text/css";` +
+			`e.rel="stylesheet";` +
+			`h.appendChild(e);` +
+			`})` +
+			`})(document,` + ac + `);</script>`
+	}
+	eb += pd.CSS()
+	eb += "<!-- /endhead -->"
+	return eb
+}
+
+func (pd *PageData) EndBody() string {
+	eb := "<!-- endbody -->"
+	eb += pd.JS()
+	eb += "<!-- /endbody -->"
+	return eb
+}
+
+func (pd *PageData) Component(name string, params ...interface{}) string {
+	if comp, ok := pd.app.Components()[name]; ok {
+		if err := comp.Include(pd, NewComponentParams(name, params)); err != nil {
+			return pd.Error("failed to include component %s: %v", name, err)
+		}
+		return ""
+	}
+	return pd.Error("component %s not found", name)
+}
+
+func (pd *PageData) Error(format string, args ...interface{}) string {
+	return fmt.Sprintf(
+		`<div class="error">%s</div>`,
+		fmt.Sprintf(format, args...))
 }
 
 func unique(v []string, w func(string) string) []string {

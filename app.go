@@ -7,6 +7,7 @@ import (
 // App interface.
 type App interface {
 	DB() *reform.DB
+	Components() map[string]ComponentWrapper
 }
 
 // AppConfig struct.

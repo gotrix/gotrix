@@ -191,10 +191,6 @@ func (app *App) loadTemplates() error {
 			}
 			tpl, err := template.
 				New(name).
-				Funcs(template.FuncMap{
-					"Component": app.templateComponent,
-					"Error":     app.templateError,
-				}).
 				Parse(string(contents))
 			if err != nil {
 				return err
@@ -258,10 +254,6 @@ func (app *App) buildPaths() error {
 	return nil
 }
 
-func (app *App) DB() *reform.DB {
-	return nil
-}
-
 func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -282,29 +274,29 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// walk through paths
 	var (
 		body    = bytes.NewBuffer([]byte{})
-		data    = gotrix.NewPageData()
+		data    = gotrix.NewPageData(body, r, app)
 		matched = false
 	)
 	for _, p := range app.paths {
 		if p.route.MatchString(r.URL.Path) {
-			pd := &pageData{
-				Path: r.URL.Path,
-				Data: data,
-			}
+			//rd := &renderData{
+			//	Path: r.URL.Path,
+			//	Data: data,
+			//}
 			if p.isSlug {
 				m := p.route.FindStringSubmatch(r.URL.Path)
 				if len(m) < 2 {
 					continue
 				}
-				pd.Slug = m[1]
+				data.SetSlug(m[1])
 			}
-			if err := p.template.Execute(body, pd); err != nil {
+			if err := p.template.Execute(body, data); err != nil {
 				log.Println(err)
 				return
 			}
-			log.Println(pd.Data)
 			matched = true
 			break
 		}
@@ -313,15 +305,27 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	pd := &pageData{
-		Body: body.String(),
-		Data: data,
-	}
-	if err := app.layout.Execute(w, pd); err != nil {
+	data.SetBody(body.String())
+	//rd := &renderData{
+	//	Body: body.String(),
+	//	Data: data,
+	//	//ComponentWrapper: func(s ...string) string {
+	//	//	return `<div>` + strings.Join(s, ";") + `</div>`
+	//	//},
+	//}
+	if err := app.layout.Execute(w, data); err != nil {
 		log.Printf("failed to render layout: %s\n", err)
 	}
 }
 
 func (app *App) Run() error {
 	return http.ListenAndServe(":8080", app)
+}
+
+func (app *App) DB() *reform.DB {
+	return nil
+}
+
+func (app *App) Components() map[string]gotrix.ComponentWrapper {
+	return app.components
 }
