@@ -1,4 +1,4 @@
-package main
+package component
 
 import (
 	"fmt"
@@ -6,18 +6,16 @@ import (
 	"github.com/gotrix/gotrix"
 )
 
-var Component = helloWorld{}
+type Component struct{}
 
-type helloWorld struct{}
-
-func (plugin *helloWorld) Include(cnf gotrix.ComponentParams) (string, error) {
+func (*Component) Include(cnf gotrix.ComponentParams) (string, error) {
 	rows := ""
 	for _, p := range cnf.Params() {
 		rows += fmt.Sprintf("<tr><td>%s</td></tr>", p)
 	}
 	return fmt.Sprintf(
 		`
-		<div class="gtx-component hello-world">
+		<div class="hello-world">
 			<h2>Hello %s!</h2>
 			<p>This is hello_world.so component</p>
 			<table>

@@ -21,7 +21,7 @@ import (
 func New(cnf *gotrix.AppConfig) (*App, error) {
 	a := &App{
 		cnf:         cnf,
-		components:  make(map[string]gotrix.Component, 0),
+		components:  make(map[string]gotrix.ComponentWrapper, 0),
 		pages:       make(map[string]*template.Template, 0),
 		paths:       make([]*path, 0),
 		staticPaths: make(map[string]http.Handler, len(cnf.StaticPaths)),
@@ -37,7 +37,7 @@ type App struct {
 
 	// components
 	componentPaths []string
-	components     map[string]gotrix.Component
+	components     map[string]gotrix.ComponentWrapper
 
 	// pages
 	pagesPaths []string
@@ -68,12 +68,15 @@ func (app *App) init() error {
 }
 
 func (app *App) buildStatic() error {
-	if len(app.cnf.StaticPaths) == 0 {
+	list := make([]string, 0)
+	copy(list, app.cnf.StaticPaths)
+	if len(list) == 0 {
 		app.cnf.StaticPaths = []string{
 			"static:./static",
 		}
 	}
-	for _, p := range app.cnf.StaticPaths {
+	list = append(list, "gotrix:./.gotrix/static")
+	for _, p := range list {
 		parts := strings.Split(p, ":")
 		if len(parts) != 2 {
 			log.Printf("warn: static path '%s' is invalid, "+
@@ -85,7 +88,8 @@ func (app *App) buildStatic() error {
 			return err
 		}
 		if dirExists(path) {
-			app.staticPaths["/"+parts[0]] = http.StripPrefix("/"+parts[0]+"/", http.FileServer(http.Dir(path)))
+			sp := parts[0]
+			app.staticPaths["/"+parts[0]] = http.StripPrefix("/"+sp+"/", http.FileServer(http.Dir(path)))
 			log.Printf("registered static path /%s to serve from %s",
 				parts[0], path)
 		} else {
@@ -128,6 +132,7 @@ func (app *App) loadComponents() error {
 			if _, ok := app.components[name]; ok {
 				log.Printf("ignoring %s, component %s already loaded", f, name)
 			}
+			log.Println(f)
 			plug, err := plugin.Open(f)
 			if err != nil {
 				return err
@@ -136,7 +141,7 @@ func (app *App) loadComponents() error {
 			if err != nil {
 				return err
 			}
-			if c, ok := com.(gotrix.Component); ok {
+			if c, ok := com.(gotrix.ComponentWrapper); ok {
 				app.components[name] = c
 				log.Printf("loaded components %s from %s\n", name, f)
 			} else {
@@ -279,12 +284,14 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	var (
 		body    = bytes.NewBuffer([]byte{})
+		data    = gotrix.NewPageData()
 		matched = false
 	)
 	for _, p := range app.paths {
 		if p.route.MatchString(r.URL.Path) {
 			pd := &pageData{
 				Path: r.URL.Path,
+				Data: data,
 			}
 			if p.isSlug {
 				m := p.route.FindStringSubmatch(r.URL.Path)
@@ -297,6 +304,7 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				log.Println(err)
 				return
 			}
+			log.Println(pd.Data)
 			matched = true
 			break
 		}
@@ -305,9 +313,11 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
-	if err := app.layout.Execute(w, &pageData{
+	pd := &pageData{
 		Body: body.String(),
-	}); err != nil {
+		Data: data,
+	}
+	if err := app.layout.Execute(w, pd); err != nil {
 		log.Printf("failed to render layout: %s\n", err)
 	}
 }

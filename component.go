@@ -41,6 +41,10 @@ type ComponentWrapper interface {
 	Include(ComponentParams) *ComponentResult
 }
 
+type ComponentPathsList interface {
+	All() []string
+}
+
 type ComponentResult struct {
 	Error error
 	Hash  string
@@ -49,9 +53,20 @@ type ComponentResult struct {
 	JS    *ComponentJS
 }
 
+func (cr *ComponentResult) Err() error {
+	return cr.Error
+}
+
 type ComponentCSS struct {
 	Regular []string
 	Async   []string
+}
+
+func (c *ComponentCSS) All() []string {
+	list := make([]string, 0, len(c.Regular)+len(c.Async))
+	list = append(list, c.Regular...)
+	list = append(list, c.Async...)
+	return list
 }
 
 type ComponentJS struct {
@@ -60,6 +75,10 @@ type ComponentJS struct {
 	Defer   []string
 }
 
-func (cr *ComponentResult) Err() error {
-	return cr.Error
+func (c *ComponentJS) All() []string {
+	list := make([]string, 0)
+	list = append(list, c.Regular...)
+	list = append(list, c.Async...)
+	list = append(list, c.Defer...)
+	return list
 }
