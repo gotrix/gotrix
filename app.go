@@ -12,6 +12,7 @@ type App interface {
 
 // AppConfig struct.
 type AppConfig struct {
+	Port           int
 	ComponentPaths []string
 	TemplatePaths  []string
 	StaticPaths    []string

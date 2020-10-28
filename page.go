@@ -152,14 +152,14 @@ func (pd *PageData) AsyncCSS() string {
 func (pd *PageData) EndHead() string {
 	eb := "<!-- endhead -->"
 	if ac := pd.AsyncCSS(); ac != `[""]` {
-		eb += `<script>((d,l,h,e)=>{` +
-			`h=d.getElementsByTagName("head")[0];` +
-			`l.forEach(s=>{` +
-			`e=d.createElement("link");` +
-			`e.href=s;` +
-			`e.type="text/css";` +
-			`e.rel="stylesheet";` +
-			`h.appendChild(e);` +
+		eb += `<script>((g,o,t,r)=>{` +
+			`t=g.getElementsByTagName("head")[0];` +
+			`o.forEach(s=>{` +
+			`r=g.createElement("link");` +
+			`r.href=s;` +
+			`r.type="text/css";` +
+			`r.rel="stylesheet";` +
+			`t.appendChild(r);` +
 			`})` +
 			`})(document,` + ac + `);</script>`
 	}

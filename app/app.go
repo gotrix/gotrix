@@ -319,7 +319,12 @@ func (app *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *App) Run() error {
-	return http.ListenAndServe(":8080", app)
+	port := app.cnf.Port
+	if port < 1 {
+		port = 8080
+	}
+	return http.ListenAndServe(
+		fmt.Sprintf(":%d", port), app)
 }
 
 func (app *App) DB() *reform.DB {
