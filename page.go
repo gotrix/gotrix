@@ -159,7 +159,8 @@ func (pd *PageData) EndHead() string {
 			`r.href=s;` +
 			`r.type="text/css";` +
 			`r.rel="stylesheet";` +
-			`t.appendChild(r);` +
+			"r.onload = () => console.log(`gotrix: 🎨 loaded async stylesheet ${s}`);" +
+			`t.appendChild(r)` +
 			`})` +
 			`})(document,` + ac + `);</script>`
 	}

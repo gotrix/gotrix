@@ -1,7 +1,10 @@
 package app
 
 import (
-	"github.com/gotrix/gotrix"
+	"os"
+	"os/exec"
+	"strconv"
+
 	"github.com/mkideal/cli"
 )
 
@@ -11,11 +14,11 @@ type StartT struct {
 
 func StartFromCLI(ctx *cli.Context) error {
 	argv := ctx.Argv().(*StartT)
-	srv, err := New(&gotrix.AppConfig{
-		Port: argv.Port,
-	})
-	if err != nil {
-		return err
-	}
-	return srv.Run()
+	cmd := exec.Command("go",
+		"run", "cmd/app/main.go",
+		"--port", strconv.Itoa(argv.Port))
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }

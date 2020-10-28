@@ -65,7 +65,7 @@ func Build(ctx *cli.Context) error {
 }
 
 func build(ctx *cli.Context, info *Info) error {
-	ctx.String("Building component %s\n", info.Name)
+	ctx.String("Building component %s\n", ctx.Color().Green(info.Name))
 	root, err := filepath.Abs(".")
 	if err != nil {
 		return err
