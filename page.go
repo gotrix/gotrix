@@ -152,17 +152,18 @@ func (pd *PageData) AsyncCSS() string {
 func (pd *PageData) EndHead() string {
 	eb := "<!-- endhead -->"
 	if ac := pd.AsyncCSS(); ac != `[""]` {
-		eb += `<script>((g,o,t,r)=>{` +
-			`t=g.getElementsByTagName("head")[0];` +
-			`o.forEach(s=>{` +
-			`r=g.createElement("link");` +
-			`r.href=s;` +
-			`r.type="text/css";` +
-			`r.rel="stylesheet";` +
-			"r.onload = () => console.log(`gotrix: 🎨 loaded async stylesheet ${s}`);" +
-			`t.appendChild(r)` +
-			`})` +
-			`})(document,` + ac + `);</script>`
+		eb += "<script>((g,o,t,r)=>{" +
+			"t=g.getElementsByTagName('head')[0];" +
+			"o.map(s=>{" +
+			"r=g.createElement('link');" +
+			"r.href=s;" +
+			"r.type='text/css';" +
+			"r.rel='stylesheet';" +
+			"r.onload=_=>console.log(`gotrix: 🎨 loaded async stylesheet ${s}`);" +
+			"r.onerror=e=>e.preventDefault()||console.error(`gotrix: 🛑 failed to load async stylesheet ${s}`);" +
+			"t.appendChild(r)" +
+			"})" +
+			"})(document," + ac + ");</script>"
 	}
 	eb += pd.CSS()
 	eb += "<!-- /endhead -->"
